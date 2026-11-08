@@ -160,6 +160,7 @@ header and the first data byte within one stop bit, so send with **2 stop bits**
 (`pc-settings\TeraTerm_SXRECVB_G815_9600_2stop.INI`, or `sxsend.py --stop 2`), or give it a pause
 after the header (`sxsend.py --pause 5`). Before using the G815 build check that `MON` and
 `USER1FFF` exist on your unit and move the word at `7FFE` (`D7FFE,7FFF` before and after).
+The **PC-E220** has no BASIC `PEEK`/`POKE`/`CALL`, so it has its own kit without a stub: see `../PC-E220`.
 The G815 and G850/G850S builds have only been run on a Z80 model so far; if one fails on a real
 unit, please report the screen text.
 
