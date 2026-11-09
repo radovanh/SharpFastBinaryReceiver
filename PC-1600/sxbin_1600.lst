@@ -1,0 +1,47 @@
+; SBC internal assembler listing of sxbin_1600.asm
+
+; labels
+BREAKCHK      = $016F =    367          
+BREAKRESET    = $018A =    394          
+CH_COM1       = $0001 =      1          
+crc_bit       = $C1A3 =  49571          sxbin_1600.asm:197
+crc_byte      = $C19D =  49565          sxbin_1600.asm:191
+crc_nx        = $C1B1 =  49585          sxbin_1600.asm:207
+dloop         = $C170 =  49520          sxbin_1600.asm:169
+gc_got        = $C212 =  49682          sxbin_1600.asm:278
+gc_nc         = $C205 =  49669          sxbin_1600.asm:270
+gc_poll       = $C1F5 =  49653          sxbin_1600.asm:261
+getc          = $C1E7 =  49639          sxbin_1600.asm:246
+getc_raw      = $C1F3 =  49651          sxbin_1600.asm:258
+guard_ok      = $C165 =  49509          sxbin_1600.asm:163
+hdr_lp        = $C120 =  49440          sxbin_1600.asm:127
+idle          = $C215 =  49685          sxbin_1600.asm:287
+idle_brk      = $C23B =  49723          sxbin_1600.asm:309
+idle_ok       = $C238 =  49720          sxbin_1600.asm:305
+IDLE_RLD      = $0040 =     64          
+idle_tmo      = $C242 =  49730          sxbin_1600.asm:314
+IOCS_CCLRRB   = $001C =     28          
+IOCS_CRCV1    = $0007 =      7          
+SERIELL       = $01D8 =    472          
+SX_BASE       = $C0C5 =  49349          
+sx_crc        = $C0E1 =  49377          sxbin_1600.asm:89
+sx_end        = $C246 =  49734          sxbin_1600.asm:319
+sx_entry      = $C0D5 =  49365          sxbin_1600.asm:82
+sx_exit       = $C1D7 =  49623          sxbin_1600.asm:230
+sx_hdr        = $C0C9 =  49353          sxbin_1600.asm:79
+sx_hi         = $C0DA =  49370          sxbin_1600.asm:84
+sx_idle       = $C0DE =  49374          sxbin_1600.asm:87
+sx_left       = $C0C7 =  49351          sxbin_1600.asm:78
+sx_lo         = $C0D8 =  49368          sxbin_1600.asm:83
+sx_main       = $C0E3 =  49379          sxbin_1600.asm:92
+sx_serr       = $C0D0 =  49360          sxbin_1600.asm:80
+sx_sign       = $C0D1 =  49361          sxbin_1600.asm:81
+sx_sp         = $C0DC =  49372          sxbin_1600.asm:86
+sx_spare      = $C0C6 =  49350          sxbin_1600.asm:77
+sx_status     = $C0C5 =  49349          sxbin_1600.asm:76
+sx_tmo        = $C0E0 =  49376          sxbin_1600.asm:88
+sync          = $C10B =  49419          sxbin_1600.asm:114
+sync_s        = $C10E =  49422          sxbin_1600.asm:116
+TMO_TICKS     = $00C8 =    200          
+
+; total size 385 bytes, org C0C5h
