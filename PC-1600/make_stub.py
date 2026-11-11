@@ -23,7 +23,7 @@ def symbols(lst_path):
     return sym
 
 
-def make_stub(image: bytes, base: int, sym: dict, top: int) -> str:
+def make_stub(image: bytes, base: int, sym: dict, top: int | None, open_com: bool = True) -> str:
     n = len(image)
     main = sym["sx_main"] - base           # code (constant bytes) starts here
     total = sum(image)
@@ -33,10 +33,20 @@ def make_stub(image: bytes, base: int, sym: dict, top: int) -> str:
     out.append("1 REM (c) Radovan Hrebicek 2026")
     out.append("2 REM SXRECV1600 v1 MIT - binary receiver for PC-1600, SXBIN at &%X" % base)
     out.append("3 REM first: NEW \"S0:\",&1000 (reserves &C0C5-&CFFF), then load this")
-    out.append("10 Q=&%X:T=&%X:L=Q+%d" % (base, top, n))
+    if open_com:   # error 150 = too many files without MAXFILES
+        out.append("9 MAXFILES=1")
+    if top is None:   # end of the area reserved by NEW "S0:",n: word at F8BEh/F8BFh = C000h + n (exclusive)
+        out.append("10 Q=&%X:T=PEEK(&F8BF)*256+PEEK(&F8BE)-1:L=Q+%d" % (base, n))
+        out.append("12 IF T<49152 THEN LET T=57343")   # S0 is a memory module (pointer in 8000-BFFF): internal RAM is not reserved, use C246-DFFF
+        out.append('15 IF T<L THEN CLS:PRINT "NEW S0: too small":END')
+    else:
+        out.append("10 Q=&%X:T=&%X:L=Q+%d" % (base, top, n))
     out.append('20 INIT "COM1:",512:SETCOM "COM1:",9600,8,N,1,N,N')
+    if open_com:   # the channel must be OPEN, else (after power-on) the ROM does not fill the receive buffer
+        out.append('22 CLOSE:OPEN "COM1:" FOR INPUT AS #1')
     out.append("30 IF PEEK(Q+12)<>%d OR PEEK(Q+13)<>%d THEN 60" % tuple(sig[:2]))
     out.append("35 IF PEEK(Q+14)<>%d OR PEEK(Q+15)<>%d THEN 60" % tuple(sig[2:]))
+    out.append('38 CLS:PRINT "Checking CRC...";')
     out.append("40 S=0:FOR I=%d TO %d:S=S+PEEK(Q+I):NEXT I" % (main, n - 1))
     out.append("50 IF S=%d THEN 120" % code_sum)
     out.append('60 CLS:PRINT "Installing SXBIN...";')
@@ -48,9 +58,11 @@ def make_stub(image: bytes, base: int, sym: dict, top: int) -> str:
     out.append("125 H=INT(T/256):POKE Q+21,T-256*H:POKE Q+22,H")
     out.append('130 CLS:PRINT "SXRECV1600 9600 8N1"')
     out.append('140 CURSOR 0,1:PRINT HEX$(L);"-";HEX$(T);" free"')
-    out.append('150 CURSOR 0,2:PRINT "Send .SXB as binary"')
+    out.append('150 CURSOR 0,2:PRINT "Send .SXE as binary"')
     out.append('160 CURSOR 0,3:PRINT "BREAK=stop";')
     out.append("170 CALL Q+16")
+    if open_com:
+        out.append("175 CLOSE")
     out.append("180 K=PEEK(Q):N=PEEK(Q+6)+256*PEEK(Q+7)")
     out.append("185 A=PEEK(Q+4)+256*PEEK(Q+5):E=PEEK(Q+8)+256*PEEK(Q+9)")
     out.append("190 IF K<>0 THEN 420")
@@ -90,12 +102,12 @@ def main():
     ap.add_argument("bin")
     ap.add_argument("lst")
     ap.add_argument("-o", "--out", default="sxrecv1600.bas")
-    ap.add_argument("--top", default="CFFF", help="highest address programs may use (hex)")
+    ap.add_argument("--top", default=None, help="fixed highest address programs may use (hex); default: read from the NEW S0: size at run time")
     ap.add_argument("--base", default="C0C5", help="load address of the image (hex)")
     a = ap.parse_args()
     image = open(a.bin, "rb").read()
     sym = symbols(a.lst)
-    text = make_stub(image, int(a.base, 16), sym, int(a.top, 16))
+    text = make_stub(image, int(a.base, 16), sym, int(a.top, 16) if a.top else None)
     with open(a.out, "w", newline="") as f:
         f.write(text)
     print(f"{a.out}: {len(image)} byte image, {len(text)} bytes of BASIC text")

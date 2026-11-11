@@ -54,15 +54,23 @@ The file ends with the EOF byte `1Ah` that finishes `LOAD` (if it stays BUSY pre
 **PC-1600**: answer `Y` to `Run &C300 ?`.
 
 After the stub is loaded you only need `RUN` and the second send for every further program. The stub sets
-`SETCOM` and `INIT "COM1:",512` itself on each run.
+`SETCOM` and `INIT "COM1:",512` itself on each run, and **opens the channel** (`MAXFILES=1`, then `OPEN "COM1:" FOR INPUT AS #1`;
+without MAXFILES the OPEN gives error 150 "too many files",
+`CLOSE` afterwards). Without an open channel the ROM does not fill the receive buffer: a freshly switched-on
+PC-1600 (where the stub was not loaded by `LOAD "COM1:"`) just waited forever. If an older stub does this,
+type `LOAD "COM1:"`, press BREAK, and run it again, or reload the current `sxrecv1600.bas`.
 
 ## 1. Reserve the machine-code area (once after a reset)
 
 `NEW "S0:",&1000` in PRO mode reserves `C0C5-CFFF` for machine code (n minus `&C5` bytes) and **erases the
 BASIC program**, so do it before loading the stub. SXBIN uses `C0C5-C245`; your program may use
-`C246-CFFF`. For a bigger area use a bigger number, and give the stub the new top
-(`python make_stub.py ... --top EFFF`, or edit `T=` in line 10). The stub trusts `T=`: **it cannot see how
-much you reserved**, and a program stored above the reserved area overwrites BASIC.
+`C246-CFFF`. For a bigger area use a bigger number: **n is a size, not an address** (`NEW "S0:",&1200` gives
+`C0C5-D1FF`; `&D1FF` is refused, the largest is about `&2EFF`). The stub reads the reserved size itself at
+run time (the word at `F8BEh` = `C000h` + n) and shows the free range on the waiting screen, e.g. `C246-D1FF free`;
+With a memory module (e.g. CE-161) in S0 the word points into the module (`NEW "S0:",&1200` gave `9200`, seen on a real
+PC-1600): the reservation is then in the module, internal RAM is **not protected** by `NEW`, and the stub uses
+`C246-DFFF` (variables grow down from `EFFF`).
+nothing to edit. (`make_stub.py --top EFFF` makes a stub with a fixed top instead.)
 
 ## 2. Load the BASIC stub (once)
 
@@ -79,7 +87,7 @@ much you reserved**, and a program stored above the reserved area overwrites BAS
 ```
 SXRECV1600 9600 8N1
 C246-CFFF free
-Send .SXB as binary
+Send .SXE as binary
 BREAK=stop
 ```
 
