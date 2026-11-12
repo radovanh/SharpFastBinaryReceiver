@@ -24,7 +24,8 @@ real device**.
 | `ihx\` | The receiver alone as Intel HEX at `0x0100`, for `MON` `R` (no BASIC needed), one file per model |
 | `samples\` | `hello.sxb` (prints `PROG RAN`), `rand1000.sxb` (1000 bytes), and the source of `hello` |
 | `sxbin.asm` | The receiver's source (z80asm / zasm dialect; `SX_MODEL` selects the model) |
-| `pc-settings\` | Tera Term settings for sending an `.sxb` |
+| `pc-settings\` | Tera Term settings for sending an `.sxb` (9600; `TeraTerm_SXRECVB_19200.INI` for the 19200 option) |
+| `TEST_19200.md` | Test plan for the optional **19200 baud** mode (PC-G850V/VS only, untested) |
 | `LICENSE` | MIT License |
 
 ## What you need
@@ -79,6 +80,13 @@ afterwards. Without `--exec` it only loads.
 While the waiting screen is up, send `prog.sxb` as binary, 9600 baud, 8N1, no flow control,
 **no transmit delay** (Tera Term: use `pc-settings\TeraTerm_SXRECVB_9600.INI`; or
 `python sxsend.py COM5 prog.sxb`). Do not use XON/XOFF.
+
+### Option: 19200 baud (PC-G850V/VS only, untested)
+
+The USART can run at 19200: about 0.5 s per kilobyte instead of 1 s. In the BASIC stub change line 20 from `B=13` to
+`B=14` (the waiting screen then shows `SXRECVB 19200 ...`) and send at 19200 8N1, no flow control
+(`TeraTerm_SXRECVB_19200.INI`, or `python sxsend.py COM5 prog.sxb --baud 19200`). The PC-G850/G850S and PC-G815 builds
+use a software UART and stay at 9600. **Not yet run on real hardware**: follow `TEST_19200.md` and report the result.
 
 ## 5. Result
 
@@ -169,7 +177,7 @@ unit, please report the screen text.
 - **`ERR SXBIN DATA damaged`**: the listing was not loaded completely or was changed. Load it
   again and compare line 9000 onward (the two numbers show how much was installed).
 - **`Need MON, USER1FFF`**: do step 1.
-- **`ERR6 serial 32`** (or similar): the PC is not at 9600 8N1, or the cable/adapter is wrong.
+- **`ERR6 serial 32`** (or similar): the PC is not at the baud rate shown on the waiting screen (9600, or 19200 if you set `B=14`) 8N1, or the cable/adapter is wrong. If 19200 fails, go back to `B=13`.
 - **`ERR3 address refused`**: the load address is outside `02A5` up to the `USER` limit. Use
   `1000` or raise the limit with a higher `USER` address.
 - Nothing happens when sending: start the transfer only after the waiting screen shows.
@@ -180,8 +188,8 @@ unit, please report the screen text.
 ## Limits
 
 - Total loaded size 1 to 65535 bytes, in one block, into the area above.
-- 9600 baud, 8 data bits, no parity (the G850V also accepts the baud byte at `0101` for other
-  rates, untested).
+- 9600 baud, 8 data bits, no parity (the G850V also accepts the baud byte at `0101`: `0E` = 19200 is
+  offered as an option in the stub, see `TEST_19200.md`; other rates untested).
 - No flow control. The PC must not use XON/XOFF.
 - Interrupts are off while receiving.
 

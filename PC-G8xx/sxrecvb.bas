@@ -1,5 +1,6 @@
 1 REM (c) Radovan Hrebicek 2026
 2 REM SXRECVB v1 MIT - binary receiver for PC-G850V, SXBIN at &H100
+3 REM Baud byte B (line 20): 13=9600 (default), 14=19200 (untested, see TEST_19200.md)
 10 CLEAR:DIM HX$(0)*48
 20 B=13:Q=&H100
 30 L=PEEK(&H7FFE)+256*PEEK(&H7FFF)
@@ -13,6 +14,7 @@
 120 POKE Q+1,B
 130 CLS:PRINT "SXRECVB ";:IF B=13 THEN PRINT "9600";
 135 IF B=12 THEN PRINT "4800";
+136 IF B=14 THEN PRINT "19200";
 140 PRINT " ";HEX$(Q+&H1A5);"-";HEX$(L-1)
 150 LOCATE 0,1:PRINT "Send .SXB as binary,"
 160 LOCATE 0,2:PRINT "No flow ctl. BRK=stop"
