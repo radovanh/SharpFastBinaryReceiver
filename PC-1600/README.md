@@ -2,7 +2,7 @@
 
 Loads a machine-code program from a PC into a Sharp **PC-1600** over its RS-232C port (`COM1:`)
 as binary, with the `.sxb` header/CRC of the PC-G8xx and PC-E220 kits, but **escaped** (`.sxe`, see below). A small BASIC
-stub installs, starts and reports; a **385-byte machine-code receiver, SXBIN**, sits at
+stub installs, starts and reports; a **415-byte machine-code receiver, SXBIN**, sits at
 `C0C5` (the start of the machine-code area). It checks the header, the target address and a CRC-16.
 
 Status: **tested on a real PC-1600** (stub load, install, `hello_1600.sxe` received and run: `PROG RAN`),
@@ -116,7 +116,7 @@ Run &C300 ? (Y/N)          (only when the file has a start address)
 | n | Text | Meaning |
 |---|---|---|
 | 2 | `CRC - send again` | CRC wrong; the bytes are stored but damaged |
-| 3 | `address refused` | outside `C246..T` (nothing stored) |
+| 3 | `address refused` | outside `C246..T` (and, for a LARGE reservation, `80C5-BFFF`); nothing stored |
 | 4 | `bad header` | header check failed or length 0 (nothing stored) |
 | 6 | `serial error` | the ROM reported receive errors and the CRC is wrong: check baud/format/cable |
 | 7 | `stopped (BRK)` | BREAK pressed |
@@ -124,6 +124,25 @@ Run &C300 ? (Y/N)          (only when the file has a start address)
 | 9 | `SXBIN did not run` | |
 
 A receive error that does not damage the data (CRC OK) is ignored: status 0.
+
+## LARGE programs from SBC (SharpBasic Compiler `$MEMORY LARGE`): code in a memory module
+
+A LARGE program has two parts: `<name>.lo.sxe` (code, loads at **80C5h-BFFFh**, the first bank of a RAM module
+in slot 1) and `<name>.hi.sxe` (internal RAM, from `C246`). Send both, `lo` first, then `CALL #0,&80C5`.
+Prepare once after a reset with the `NEW "S0:",&n` that the SBC build prints (for a 32 KB module `n` is at least
+`&8000`, e.g. `&9000`), **before** loading the stub. The stub then shows both ranges:
+
+```
+SXRECV1600 9600 8N1
+80C5-BFFF,C264-CFFF free
+```
+The stub allows `80C5-BFFF` as a second range only when a memory module is the first S0 run (ADTBL entry `01h`) **and**
+`NEW` reached into internal RAM (the pointer at `F8BEh` is `C000h` or more, which is the case for the LARGE `NEW` of a 32 KB
+module, `n` of `&8000` and more; a 16 KB module was not probed). With a small `NEW` or no module a block at `80C5` is refused (`ERR 3`).
+Checked in Calc-U-1600 (CE-1600M in slot 1, serial IOCS shimmed): `NEW &8200` gives `C200`, `&9800` gives `D800`,
+`&1000` gives `9000`; the whole of `80C5-BFFF` (including the last bytes) is stored and read back. **Real hardware:
+not tried** (ADTBL on a real module, `BLOAD`-free `CALL #0,&80C5` after a receive).
+Do not use ROM `PRTASTR` with a string inside bank 0 (it hung in the emulator); SBC programs do not.
 
 ## Larger sample: graphics demo
 
@@ -140,7 +159,8 @@ file. Source: SharpPocketLib `PC-1600/sxbin/demo/gfxdemo_1600.asm` (the same `bi
 Receiver at `C0C5`, entry `CALL &C0C5+16` (= `&C0D5`) after `POKE`ing the allowed range: word at
 `&C0D8` = lowest address, word at `&C0DA` = highest (inclusive); default highest = 0 refuses everything.
 Result block: `C0C5` status, `C0C7/8` bytes not received, `C0C9-C0CF` header (load, length, exec, check),
-`C0D0` nonzero = a receive error was seen. Layout and details: header of `sxbin_1600.asm`.
+`C0D0` nonzero = a receive error was seen. A second allowed range: word at `&C0DC` = lowest, `&C0DE` =
+highest (default 1 / 0 = off). Layout and details: header of `sxbin_1600.asm`.
 
 ## Troubleshooting
 

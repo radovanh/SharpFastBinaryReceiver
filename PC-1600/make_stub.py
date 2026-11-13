@@ -37,6 +37,10 @@ def make_stub(image: bytes, base: int, sym: dict, top: int | None, open_com: boo
         out.append("9 MAXFILES=1")
     if top is None:   # end of the area reserved by NEW "S0:",n: word at F8BEh/F8BFh = C000h + n (exclusive)
         out.append("10 Q=&%X:T=PEEK(&F8BF)*256+PEEK(&F8BE)-1:L=Q+%d" % (base, n))
+        # LARGE reservation (SBC $MEMORY LARGE): a memory module is the first S0 run (ADTBL entry at F1D5h + (F02Ah) = 01h:
+        # bank 0 in slot 1) and NEW "S0:",n with n >= &4000 reaches into internal RAM (pointer >= C000h), so bank 0 is reserved
+        # too: programs may also load at 80C5h-BFFFh (second range of SXBIN). Probed in Calc-U-1600: CE-1600M, NEW &8200 -> C200.
+        out.append("11 LG=0:IF T>=49152 AND PEEK(61909+PEEK(61482))=1 THEN LET LG=1")
         out.append("12 IF T<49152 THEN LET T=57343")   # S0 is a memory module (pointer in 8000-BFFF): internal RAM is not reserved, use C246-DFFF
         out.append('15 IF T<L THEN CLS:PRINT "NEW S0: too small":END')
     else:
@@ -56,8 +60,15 @@ def make_stub(image: bytes, base: int, sym: dict, top: int | None, open_com: boo
     out.append("100 IF S<>%d OR I-Q<>%d THEN 410" % (total, n))
     out.append("120 POKE Q,9:H=INT(L/256):POKE Q+19,L-256*H:POKE Q+20,H")
     out.append("125 H=INT(T/256):POKE Q+21,T-256*H:POKE Q+22,H")
+    if top is None:   # second range: off (1..0), or 80C5-BFFF for a LARGE reservation
+        out.append("126 POKE Q+23,1:POKE Q+24,0:POKE Q+25,0:POKE Q+26,0")
+        out.append("127 IF LG=1 THEN POKE Q+23,197:POKE Q+24,128:POKE Q+25,255:POKE Q+26,191")
     out.append('130 CLS:PRINT "SXRECV1600 9600 8N1"')
-    out.append('140 CURSOR 0,1:PRINT HEX$(L);"-";HEX$(T);" free"')
+    if top is None:
+        out.append('140 CURSOR 0,1:IF LG=1 THEN PRINT "80C5-BFFF,";')
+        out.append('141 PRINT HEX$(L);"-";HEX$(T);" free"')
+    else:
+        out.append('140 CURSOR 0,1:PRINT HEX$(L);"-";HEX$(T);" free"')
     out.append('150 CURSOR 0,2:PRINT "Send .SXE as binary"')
     out.append('160 CURSOR 0,3:PRINT "BREAK=stop";')
     out.append("170 CALL Q+16")

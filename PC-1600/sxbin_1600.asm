@@ -32,8 +32,9 @@
 ;   Make such files (.sxe) with bin2sxe.py.
 ;
 ; ADDRESS GUARD
-;   The whole block must lie in sx_lo .. sx_hi (inclusive). The stub POKEs both
-;   before the call. Default sx_hi = 0 = everything is refused (status 3).
+;   The whole block must lie in sx_lo .. sx_hi or in sx_lo2 .. sx_hi2 (inclusive). The stub POKEs
+;   them before the call. Default sx_hi = 0 = everything is refused (status 3); the second range is
+;   off by default (sx_lo2 = 1, sx_hi2 = 0: no block can lie in it).
 ;
 ; BLOCK AT SX_BASE (read/written by the BASIC stub with PEEK/POKE)
 ;   +0   STATUS  out  0 OK, 2 CRC wrong (bytes stored, damaged), 3 address refused
@@ -47,6 +48,9 @@
 ;   +16  entry   -    JP SX_MAIN (CALL &C0C5+16)
 ;   +19  LO      in   lowest allowed address (word)
 ;   +21  HI      in   highest allowed address (word, inclusive)
+;   +23  LO2     in   second allowed range, lowest address (word); default 1
+;   +25  HI2     in   second allowed range, highest address (word, inclusive); default 0 = no second range
+;                     (the stub sets 80C5..BFFF for a LARGE SBC program in a memory module, see sxrecv1600.bas)
 ;
 ; Registers: AF BC DE HL and the interrupt state are kept. IX/IY/shadow set not used.
 ; Build: python z80asm.py sxbin_1600.asm  (-> sxbin_1600.bin, loads at 0xC0C5)
@@ -82,6 +86,9 @@ sx_sign:    db 'S', 'X', '1', '6'
 sx_entry:   jp sx_main          ; at SX_BASE + 16
 sx_lo:      dw sx_end           ; at SX_BASE + 19
 sx_hi:      dw 0                ; at SX_BASE + 21
+sx_lo2:     dw 1                ; at SX_BASE + 23
+sx_hi2:     dw 0                ; at SX_BASE + 25
+sx_last:    dw 0
 
 sx_sp:      dw 0
 sx_idle:    dw 0
@@ -142,24 +149,24 @@ hdr_lp:
 	ld A, #4
 	jp Z, sx_exit           ; length 0
 
-;--- address guard: sx_lo <= load and load + n - 1 <= sx_hi ------------------------
-	ld HL, (sx_hdr)
-	ld DE, (sx_lo)
-	or A
-	sbc HL, DE
-	ld A, #3
-	jp C, sx_exit           ; below the allowed area
+;--- address guard: the block must lie in sx_lo..sx_hi or in sx_lo2..sx_hi2 ------------------
 	ld HL, (sx_hdr)
 	ld DE, (sx_hdr + 2)
 	add HL, DE              ; load + n
+	ld A, #3
 	jp C, sx_exit           ; runs past 0xFFFF
 	dec HL                  ; last byte
-	ld DE, (sx_hi)
-	or A
-	sbc HL, DE              ; last - hi
-	jr C, guard_ok
-	jr Z, guard_ok
-	jp sx_exit              ; A is still 3
+	ld (sx_last), HL
+	ld DE, (sx_lo)
+	ld BC, (sx_hi)
+	call inrange
+	jr NC, guard_ok
+	ld DE, (sx_lo2)
+	ld BC, (sx_hi2)
+	call inrange
+	jr NC, guard_ok
+	ld A, #3
+	jp sx_exit              ; outside both ranges
 guard_ok:
 
 ;--- the data ---------------------------------------------------------------------
@@ -236,6 +243,22 @@ sx_exit:
 	pop BC
 	pop AF
 	ret
+
+;------------------------------------------------------------------------
+; inrange -- DE = lowest, BC = highest allowed address: CF=0 when sx_hdr (load) .. sx_last
+; lie inside, CF=1 when outside. Clobbers HL, DE.
+;------------------------------------------------------------------------
+inrange:
+	ld HL, (sx_hdr)
+	or A
+	sbc HL, DE              ; load - lo
+	ret C                   ; below
+	push BC
+	pop HL
+	ld DE, (sx_last)
+	or A
+	sbc HL, DE              ; hi - last
+	ret                     ; CF=1: last > hi
 
 ;------------------------------------------------------------------------
 ; getc -- next byte of the file in A, escapes undone: 7Dh, x -> x xor 20h.
